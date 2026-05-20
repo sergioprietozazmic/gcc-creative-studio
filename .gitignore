@@ -18,3 +18,8 @@ local/
 !**/environments/dev-infra-example/
 
 genmedia-agent-demos
+# Local terraform state and artifacts
+infra/environments/*/dev-infra.tfvars.bak
+infra/environments/*/.terraform/
+infra/environments/*/.terraform.lock.hcl
+infra/environments/*/.bootstrap_state

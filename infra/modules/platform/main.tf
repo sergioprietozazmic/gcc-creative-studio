@@ -79,6 +79,35 @@ resource "google_cloudbuildv2_repository" "source_repo" {
 }
 
 # Postgres Database related
+# --- Private Networking for Cloud SQL ---
+# Dedicated VPC for Creative Studio. Keeps this workload's networking
+# isolated from any other VPCs in the same project (e.g., azure-toolbox-vpc).
+resource "google_compute_network" "creative_studio_vpc" {
+  name                    = "creative-studio-vpc"
+  project                 = var.gcp_project_id
+  auto_create_subnetworks = true
+}
+
+# Reserve an internal IP range that Google-managed services (Cloud SQL)
+# can use via VPC peering. This is the range the Postgres instance gets its IP from.
+resource "google_compute_global_address" "private_ip_range" {
+  name          = "creative-studio-sql-private-ip"
+  project       = var.gcp_project_id
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.creative_studio_vpc.id
+}
+
+# Establish the VPC peering between Creative Studio's VPC and Google's
+# managed-services VPC. Cloud SQL with private IP becomes reachable through this.
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.creative_studio_vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
+}
+
+# Postgres Database related
 # 1. Read the Secret (Created by Bootstrap script)
 data "google_secret_manager_secret_version" "db_password" {
   secret  = "creative-studio-db-password"
@@ -88,12 +117,18 @@ data "google_secret_manager_secret_version" "db_password" {
 
 # 2. Call PostgreSQL Module
 module "postgresql" {
-  source      = "../postgresql"
-  project_id  = var.gcp_project_id
-  region      = var.gcp_region
-  
+  source     = "../postgresql"
+  project_id = var.gcp_project_id
+  region     = var.gcp_region
+
   # Pass the ACTUAL value to create the user
   db_password = data.google_secret_manager_secret_version.db_password.secret_data
+
+  # Reference the dedicated VPC for private IP
+  network_id = google_compute_network.creative_studio_vpc.id
+
+  # Ensure peering is established before the SQL instance is created
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
 # --- Service Module Calls ---

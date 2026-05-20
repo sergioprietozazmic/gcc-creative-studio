@@ -17,3 +17,8 @@ variable "region" {}
 variable "db_name" { default = "creative_studio" }
 variable "db_user" { default = "studio_user" }
 variable "db_password" { sensitive = true }
+
+variable "network_id" {
+  description = "The VPC network self_link for private IP configuration"
+  type        = string
+}
