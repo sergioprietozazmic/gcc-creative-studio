@@ -129,3 +129,16 @@ variable "db_secret_id" {
 }
 variable "db_name" { type = string }
 variable "db_user" { type = string }
+
+# Direct VPC egress for reaching private-IP resources (e.g., Cloud SQL)
+variable "network_id" {
+  description = "VPC network self_link for Direct VPC egress. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "subnetwork_id" {
+  description = "Subnetwork self_link for Direct VPC egress. Required when network_id is set."
+  type        = string
+  default     = ""
+}
